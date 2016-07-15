@@ -46,7 +46,7 @@ class Section {
   }
 }
 
-interface IBlock {
+export interface IBlock {
   type: string;
   toJSON(): Object;
 }
@@ -127,10 +127,10 @@ export class Analyzer {
     "modifiers": (name, content) => new TabularBlock("modifiers", content)
   };
 
-  async analyze(path: string, syntax: string): Promise<AnalyzerContext> {
+  async analyze(path: string, syntax: string): Promise<any> {
     var context = new AnalyzerContext(path, syntax)
     await this.analyzeFile(context);
-    return context;
+    return context.toJSON();
   }
 
   private async analyzeFile(context: AnalyzerContext) {

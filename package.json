@@ -2,7 +2,9 @@
   "name": "guidestyle",
   "version": "1.0.0",
   "description": "Analyzes KSS-style comments with extensions and generates styleguide JSON",
-  "main": "index.js",
+  "main": "dist/index.js",
+  "files": ["dist"],
+  "typings": "dist/index.d.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
