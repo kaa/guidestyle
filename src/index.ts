@@ -40,8 +40,12 @@ class Section {
       line: this.line,
       title: this.title,
       body: this.body,
-      blocks: this.blocks.map(t => t.toJSON()),
-      sections: this.sections.map(t => t.toJSON())
+      blocks: this.blocks 
+        ? this.blocks.map(t => t.toJSON())
+        : null,
+      sections: this.sections 
+        ? this.sections.map(t => t.toJSON())
+        : null,
     }
   }
 }
@@ -106,7 +110,7 @@ class AnalyzerContext {
   toJSON(): Object {
     return {
       variables: this.variables,
-      sections: this.sections
+      sections: this.sections.map(t => t.toJSON())
     }
   }
 
