@@ -242,7 +242,4 @@ class Analyzer {
     }
 }
 exports.Analyzer = Analyzer;
-new Analyzer().analyze("data/main.scss", undefined)
-    .catch(e => console.error(e))
-    .then(t => console.log(t));
 //# sourceMappingURL=index.js.map

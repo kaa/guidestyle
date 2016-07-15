@@ -264,8 +264,3 @@ export class Analyzer {
     return section;
   }
 }
-
-new Analyzer().analyze("data/main.scss", undefined)
-  .catch(e => console.error(e))
-  .then(t => console.log(t));
-
