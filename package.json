@@ -1,0 +1,15 @@
+{
+  "name": "guidestyle",
+  "version": "1.0.0",
+  "description": "Analyzes KSS-style comments with extensions and generates styleguide JSON",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "kaa (https://github.com/kaa)",
+  "license": "ISC",
+  "dependencies": {
+    "gonzales-pe": "^3.3.6",
+    "mz": "^2.4.0"
+  }
+}
