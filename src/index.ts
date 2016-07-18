@@ -110,7 +110,7 @@ class AnalyzerContext {
   toJSON(): Object {
     return {
       variables: this.variables,
-      sections: this.sections.map(t => t.toJSON())
+      styleguide: this.sections[0].toJSON()
     }
   }
 
