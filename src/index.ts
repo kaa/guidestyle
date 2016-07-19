@@ -65,10 +65,7 @@ class TextBlock implements IBlock {
     this.content = content;
   }
   toJSON(context: AnalyzerContext): Object {
-    return {
-      type: this.type,
-      content: this.content
-    }
+    return this.content;
   }
 }
 
@@ -84,10 +81,7 @@ class KeyValueBlock implements IBlock {
     });
   }
   toJSON(context: AnalyzerContext): Object {
-    return {
-      type: this.type,
-      rows: this.rows
-    }
+    return this.rows;
   }
 }
 
@@ -106,10 +100,7 @@ class ModifiersBlock extends KeyValueBlock {
         modifiers[value] = {"type": "unknown", "value": value, "description": this.rows[value] };
       }
     });
-    return {
-      type: this.type,
-      modifiers: modifiers
-    }
+    return modifiers;
   }
 }
 

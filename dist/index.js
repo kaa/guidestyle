@@ -57,10 +57,7 @@ class TextBlock {
         this.content = content;
     }
     toJSON(context) {
-        return {
-            type: this.type,
-            content: this.content
-        };
+        return this.content;
     }
 }
 class KeyValueBlock {
@@ -73,10 +70,7 @@ class KeyValueBlock {
         });
     }
     toJSON(context) {
-        return {
-            type: this.type,
-            rows: this.rows
-        };
+        return this.rows;
     }
 }
 class ModifiersBlock extends KeyValueBlock {
@@ -96,10 +90,7 @@ class ModifiersBlock extends KeyValueBlock {
                 modifiers[value] = { "type": "unknown", "value": value, "description": this.rows[value] };
             }
         });
-        return {
-            type: this.type,
-            modifiers: modifiers
-        };
+        return modifiers;
     }
 }
 class AnalyzerContext {
