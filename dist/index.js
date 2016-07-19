@@ -23,17 +23,30 @@ class Section {
         }
         this.sections.push(section);
     }
-    toJSON() {
+    toJSON(context) {
+        var blocks = {};
+        if (this.blocks) {
+            this.blocks.forEach(block => {
+                var json = block.toJSON(context);
+                if (blocks[block.type] === undefined) {
+                    blocks[block.type] = json;
+                }
+                else if (blocks[block.type] instanceof Array) {
+                    blocks[block.type].push(json);
+                }
+                else {
+                    blocks[block.type] = [blocks[block.type], json];
+                }
+            });
+        }
         return {
             file: this.file,
             line: this.line,
             title: this.title,
             body: this.body,
-            blocks: this.blocks
-                ? this.blocks.map(t => t.toJSON())
-                : null,
+            blocks: blocks,
             sections: this.sections
-                ? this.sections.map(t => t.toJSON())
+                ? this.sections.map(t => t.toJSON(context))
                 : null,
         };
     }
@@ -43,7 +56,7 @@ class TextBlock {
         this.type = type;
         this.content = content;
     }
-    toJSON() {
+    toJSON(context) {
         return {
             type: this.type,
             content: this.content
@@ -59,7 +72,7 @@ class KeyValueBlock {
             this.rows[m[0].substring(0, m[0].length - 3).trim()] = t.substring(m[0].length).trim();
         });
     }
-    toJSON() {
+    toJSON(context) {
         return {
             type: this.type,
             rows: this.rows
@@ -67,17 +80,20 @@ class KeyValueBlock {
     }
 }
 class ModifiersBlock extends KeyValueBlock {
-    toJSON() {
+    toJSON(context) {
         var modifiers = {};
         Object.keys(this.rows).forEach((value, index) => {
-            if (index[0] == ".") {
-                modifiers[index] = { "type": "class", "value": value.substring(1), "description": this.rows[value] };
+            if (value[0] === ".") {
+                modifiers[value] = { "type": "class", "value": value.substring(1), "description": this.rows[value] };
             }
-            else if (index[0] == "%") {
-                modifiers[index] = { "type": "variable", "value": "UNKNOWN", "description": this.rows[value] };
+            else if (value[0] === "$") {
+                modifiers[value] = { "type": "variable", "name": value.substring(1), "value": context.resolveVariable(value.substring(1)), "description": this.rows[value] };
             }
-            else if (index[0] == ":") {
-                modifiers[index] = { "type": "pseudo", "value": value, "description": this.rows[value] };
+            else if (value[0] === ":") {
+                modifiers[value] = { "type": "pseudo", "value": value, "description": this.rows[value] };
+            }
+            else {
+                modifiers[value] = { "type": "unknown", "value": value, "description": this.rows[value] };
             }
         });
         return {
@@ -99,10 +115,13 @@ class AnalyzerContext {
         t.variables = this.variables;
         return t;
     }
+    resolveVariable(name) {
+        return this.variables[name];
+    }
     toJSON() {
         return {
             variables: this.variables,
-            styleguide: this.sections[0].toJSON()
+            styleguide: this.sections[0].toJSON(this)
         };
     }
     guessSyntaxFromExtension(filename) {

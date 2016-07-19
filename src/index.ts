@@ -26,25 +26,36 @@ class Section {
     }
     this.sections.push(section);
   }
-  toJSON(): Object {
+  toJSON(context: AnalyzerContext): Object {
+    var blocks = {};
+    if(this.blocks) {
+      this.blocks.forEach(block => {
+        var json = block.toJSON(context);
+        if(blocks[block.type]===undefined) {
+          blocks[block.type] = json;
+        } else if(blocks[block.type] instanceof Array) {
+          blocks[block.type].push(json);
+        } else {
+          blocks[block.type] = [blocks[block.type], json];
+        }
+      });
+    }
     return {
       file: this.file,
       line: this.line,
       title: this.title,
       body: this.body,
-      blocks: this.blocks 
-        ? this.blocks.map(t => t.toJSON())
-        : null,
+      blocks: blocks,
       sections: this.sections 
-        ? this.sections.map(t => t.toJSON())
+        ? this.sections.map(t => t.toJSON(context))
         : null,
     }
   }
 }
 
-export interface IBlock {
+interface IBlock {
   type: string;
-  toJSON(): Object;
+  toJSON(context: AnalyzerContext): Object;
 }
 class TextBlock implements IBlock {
   type: string;
@@ -53,7 +64,7 @@ class TextBlock implements IBlock {
     this.type = type;
     this.content = content;
   }
-  toJSON(): Object {
+  toJSON(context: AnalyzerContext): Object {
     return {
       type: this.type,
       content: this.content
@@ -72,7 +83,7 @@ class KeyValueBlock implements IBlock {
       this.rows[m[0].substring(0,m[0].length-3).trim()] = t.substring(m[0].length).trim();
     });
   }
-  toJSON(): Object {
+  toJSON(context: AnalyzerContext): Object {
     return {
       type: this.type,
       rows: this.rows
@@ -82,15 +93,17 @@ class KeyValueBlock implements IBlock {
 
 class ModifiersBlock extends KeyValueBlock {
   type: string;
-  toJSON(): Object {
+  toJSON(context: AnalyzerContext): Object {
     var modifiers = {};
     Object.keys(this.rows).forEach((value, index) => {
-      if(index[0]==".") {
-        modifiers[index] = {"type": "class", "value": value.substring(1), "description": this.rows[value] };
-      } else if(index[0]=="%") {
-        modifiers[index] = {"type": "variable", "value": "UNKNOWN", "description": this.rows[value] };
-      } else if(index[0]==":") {
-        modifiers[index] = {"type": "pseudo", "value": value, "description": this.rows[value] };
+      if(value[0]===".") {
+        modifiers[value] = {"type": "class", "value": value.substring(1), "description": this.rows[value] };
+      } else if(value[0]==="$") {
+        modifiers[value] = {"type": "variable", "name": value.substring(1), "value": context.resolveVariable(value.substring(1)), "description": this.rows[value] };
+      } else if(value[0]===":") {
+        modifiers[value] = {"type": "pseudo", "value": value, "description": this.rows[value] };
+      } else {
+        modifiers[value] = {"type": "unknown", "value": value, "description": this.rows[value] };
       }
     });
     return {
@@ -120,10 +133,14 @@ class AnalyzerContext {
     return t;
   }
 
+  resolveVariable(name: string): string {
+    return this.variables[name];
+  }
+
   toJSON(): Object {
     return {
       variables: this.variables,
-      styleguide: this.sections[0].toJSON()
+      styleguide: this.sections[0].toJSON(this)
     }
   }
 
@@ -140,7 +157,7 @@ class AnalyzerContext {
 }
 export class Analyzer {
 
-  types: { [prefix: string]: (name: string, content: string) => IBlock } = {
+  private types: { [prefix: string]: (name: string, content: string) => IBlock } = {
     "modifiers": (name, content) => new ModifiersBlock("modifiers", content)
   };
 

@@ -1,11 +1,5 @@
-export interface IBlock {
-    type: string;
-    toJSON(): Object;
-}
 export declare class Analyzer {
-    types: {
-        [prefix: string]: (name: string, content: string) => IBlock;
-    };
+    private types;
     analyze(path: string, syntax: string): Promise<any>;
     private analyzeFile(context);
     private traverse(node, context);
