@@ -11,14 +11,6 @@ const fs = require('mz/fs');
 const path = require('path');
 let gonzales = require('gonzales-pe');
 class Section {
-    get markup() {
-        var block = this.blocks.find(t => t.type == "markup");
-        return block ? block.content : null;
-    }
-    get modifiers() {
-        var block = this.blocks.find(t => t.type == "modifiers");
-        return block ? block.rows : null;
-    }
     addBlock(block) {
         if (!this.blocks) {
             this.blocks = [];
@@ -58,7 +50,7 @@ class TextBlock {
         };
     }
 }
-class TabularBlock {
+class KeyValueBlock {
     constructor(type, content) {
         this.type = type;
         this.rows = {};
@@ -71,6 +63,26 @@ class TabularBlock {
         return {
             type: this.type,
             rows: this.rows
+        };
+    }
+}
+class ModifiersBlock extends KeyValueBlock {
+    toJSON() {
+        var modifiers = {};
+        Object.keys(this.rows).forEach((value, index) => {
+            if (index[0] == ".") {
+                modifiers[index] = { "type": "class", "value": value.substring(1), "description": this.rows[value] };
+            }
+            else if (index[0] == "%") {
+                modifiers[index] = { "type": "variable", "value": "UNKNOWN", "description": this.rows[value] };
+            }
+            else if (index[0] == ":") {
+                modifiers[index] = { "type": "pseudo", "value": value, "description": this.rows[value] };
+            }
+        });
+        return {
+            type: this.type,
+            modifiers: modifiers
         };
     }
 }
@@ -107,7 +119,7 @@ class AnalyzerContext {
 class Analyzer {
     constructor() {
         this.types = {
-            "modifiers": (name, content) => new TabularBlock("modifiers", content)
+            "modifiers": (name, content) => new ModifiersBlock("modifiers", content)
         };
     }
     analyze(path, syntax) {

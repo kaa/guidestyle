@@ -14,14 +14,6 @@ class Section {
   blocks: IBlock[];
   sections: Section[];
 
-  get markup() {
-    var block = this.blocks.find(t => t.type=="markup") as TextBlock;
-    return block ? block.content : null;
-  }
-  get modifiers() {
-    var block = this.blocks.find(t => t.type=="modifiers") as TabularBlock;
-    return block ? block.rows : null;
-  }
   addBlock(block: IBlock) {
     if(!this.blocks){
       this.blocks = [];
@@ -68,7 +60,8 @@ class TextBlock implements IBlock {
     }
   }
 }
-class TabularBlock implements IBlock {
+
+class KeyValueBlock implements IBlock {
   type: string;
   rows: { [name: string]: string }
   constructor(type: string, content: string) {
@@ -83,6 +76,26 @@ class TabularBlock implements IBlock {
     return {
       type: this.type,
       rows: this.rows
+    }
+  }
+}
+
+class ModifiersBlock extends KeyValueBlock {
+  type: string;
+  toJSON(): Object {
+    var modifiers = {};
+    Object.keys(this.rows).forEach((value, index) => {
+      if(index[0]==".") {
+        modifiers[index] = {"type": "class", "value": value.substring(1), "description": this.rows[value] };
+      } else if(index[0]=="%") {
+        modifiers[index] = {"type": "variable", "value": "UNKNOWN", "description": this.rows[value] };
+      } else if(index[0]==":") {
+        modifiers[index] = {"type": "pseudo", "value": value, "description": this.rows[value] };
+      }
+    });
+    return {
+      type: this.type,
+      modifiers: modifiers
     }
   }
 }
@@ -128,7 +141,7 @@ class AnalyzerContext {
 export class Analyzer {
 
   types: { [prefix: string]: (name: string, content: string) => IBlock } = {
-    "modifiers": (name, content) => new TabularBlock("modifiers", content)
+    "modifiers": (name, content) => new ModifiersBlock("modifiers", content)
   };
 
   async analyze(path: string, syntax: string): Promise<any> {
