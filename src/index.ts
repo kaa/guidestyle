@@ -206,13 +206,13 @@ export class Analyzer {
         if(!atident || atident.content!=="import") break;
         let file = node.first("string");
         if(!file) break;
-        let rawPath = file.content.replace(/^[\s"]*|[\s"]*$/g, "");
-        let resolvedPath: string;
-        if(context.syntax==="scss") {
-          resolvedPath = path.join(path.dirname(context.file),"_"+rawPath+".scss");
-        } else {
-          resolvedPath = path.join(path.dirname(context.file),rawPath);
-        }
+        let basepath = path.dirname(context.file),
+            rawPath = file.content.replace(/^[\s"]*|[\s"]*$/g, ""),
+            dirname = path.dirname(rawPath),
+            basename = path.basename(rawPath).replace(/^_/,"").replace(/.scss$/,"");
+        let resolvedPath = context.syntax==="scss"
+          ? path.join(basepath, dirname, "_" + basename + ".scss")
+          : path.join(path.dirname(context.file),rawPath);
         await this.analyzeFile(context.extend(resolvedPath));
         break;
 
