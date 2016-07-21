@@ -94,9 +94,10 @@ class ModifiersBlock extends KeyValueBlock {
     }
 }
 class AnalyzerContext {
-    constructor(path, syntax) {
-        this.file = path;
-        this.syntax = syntax || this.guessSyntaxFromExtension(path);
+    constructor(fileName, syntax) {
+        this.file = fileName;
+        this.basePath = path.dirname(fileName);
+        this.syntax = syntax || this.guessSyntaxFromExtension(fileName);
         this.sections = [new Section()];
         this.variables = {};
     }
@@ -152,7 +153,7 @@ class Analyzer {
             switch (node.type) {
                 case "multilineComment":
                     let section = this.parseSection(node.content);
-                    section.file = context.file;
+                    section.file = path.relative(context.basePath, context.file);
                     section.line = node.start.line;
                     if (!section) {
                         console.log("Bad section?");

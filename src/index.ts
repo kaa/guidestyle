@@ -109,10 +109,12 @@ class AnalyzerContext {
   sections: Section[];
   variables: {[name: string]: string};
   file: string;
+  basePath: string;
 
-  constructor(path: string, syntax?: string) {
-    this.file = path;
-    this.syntax = syntax || this.guessSyntaxFromExtension(path);
+  constructor(fileName: string, syntax?: string) {
+    this.file = fileName;
+    this.basePath = path.dirname(fileName);
+    this.syntax = syntax || this.guessSyntaxFromExtension(fileName);
     this.sections = [new Section()];
     this.variables = {};
   }
@@ -169,7 +171,7 @@ export class Analyzer {
     switch(node.type) {
       case "multilineComment":
         let section = this.parseSection(node.content)
-        section.file = context.file;
+        section.file = path.relative(context.basePath, context.file);
         section.line = node.start.line;
         if(!section) {
           console.log("Bad section?");
