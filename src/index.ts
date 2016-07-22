@@ -151,6 +151,10 @@ class AnalyzerContext {
   }
 }
 export class Analyzer {
+  private static defaultOptions = {
+    ignore: "",
+    sectionPrefix: "",
+  };
 
   private types: { [prefix: string]: (name: string, content: string) => IBlock } = {
     "modifiers": (name, content) => new ModifiersBlock("modifiers", content)
@@ -160,7 +164,7 @@ export class Analyzer {
   private ignore: minimatch.Minimatch;
 
   constructor(options: any){ 
-    this.options = Object.assign({}, options);
+    this.options = Object.assign({}, Analyzer.defaultOptions, options);
     this.ignore = new minimatch.Minimatch(this.options.ignore || "");
   }  
 
@@ -171,16 +175,26 @@ export class Analyzer {
   }
 
   private async analyzeFile(context: AnalyzerContext) {
-    if(this.ignore.match(context.file)) return;
+    let relativePath = path.relative(context.basePath, context.file);
+    if(this.ignore.match(relativePath)) {
+      return; // Ignored in options
+    }
     var buffer = await fs.readFile(context.file);
     var source = buffer.toString();
     var tree = gonzales.parse(source, { syntax: context.syntax });
     await this.traverse(tree, context);
   }
 
+  private isAcceptedSection(content) {
+    return !this.options.sectionPrefix || content.substring(0, this.options.sectionPrefix.length)!=this.options.sectionPrefix;
+  }
+
   private async traverse(node: any, context: AnalyzerContext) {
     switch(node.type) {
       case "multilineComment":
+        if(!this.isAcceptedSection(node.content)) {
+          break;
+        }
         let section = this.parseSection(node.content)
         if(!section) {
           console.log("Bad section?");
@@ -256,7 +270,7 @@ export class Analyzer {
         match : RegExpExecArray;
     let paragraphs = source
       .split("\n\n")
-      .map(t => t.replace(/^\s*|\s*$/g,""))
+      .map(t => t.replace(/^\s*/m,"").replace(/\s*$/g,""))
       .filter(t => t.length>0);
 
     let section = new Section();

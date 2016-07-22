@@ -134,7 +134,7 @@ class Analyzer {
         this.types = {
             "modifiers": (name, content) => new ModifiersBlock("modifiers", content)
         };
-        this.options = Object.assign({}, options);
+        this.options = Object.assign({}, Analyzer.defaultOptions, options);
         this.ignore = new minimatch.Minimatch(this.options.ignore || "");
     }
     analyze(path, syntax) {
@@ -146,18 +146,26 @@ class Analyzer {
     }
     analyzeFile(context) {
         return __awaiter(this, void 0, void 0, function* () {
-            if (this.ignore.match(context.file))
-                return;
+            let relativePath = path.relative(context.basePath, context.file);
+            if (this.ignore.match(relativePath)) {
+                return; // Ignored in options
+            }
             var buffer = yield fs.readFile(context.file);
             var source = buffer.toString();
             var tree = gonzales.parse(source, { syntax: context.syntax });
             yield this.traverse(tree, context);
         });
     }
+    isAcceptedSection(content) {
+        return !this.options.sectionPrefix || content.substring(0, this.options.sectionPrefix.length) != this.options.sectionPrefix;
+    }
     traverse(node, context) {
         return __awaiter(this, void 0, void 0, function* () {
             switch (node.type) {
                 case "multilineComment":
+                    if (!this.isAcceptedSection(node.content)) {
+                        break;
+                    }
                     let section = this.parseSection(node.content);
                     if (!section) {
                         console.log("Bad section?");
@@ -229,7 +237,7 @@ class Analyzer {
         let blockRegExp = /^\s*(\w+):/, setextRegExp = /^\s*(=+|-+)/, atxRegExp = /^\s*(#+)\W+/, match;
         let paragraphs = source
             .split("\n\n")
-            .map(t => t.replace(/^\s*|\s*$/g, ""))
+            .map(t => t.replace(/^\s*/m, "").replace(/\s*$/g, ""))
             .filter(t => t.length > 0);
         let section = new Section();
         let para = paragraphs.shift();
@@ -270,5 +278,9 @@ class Analyzer {
         return section;
     }
 }
+Analyzer.defaultOptions = {
+    ignore: "",
+    sectionPrefix: "",
+};
 exports.Analyzer = Analyzer;
 //# sourceMappingURL=index.js.map
