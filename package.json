@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "description": "Analyzes KSS-style comments with extensions and generates styleguide JSON",
   "main": "dist/index.js",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "typings": "dist/index.d.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -12,6 +14,7 @@
   "license": "ISC",
   "dependencies": {
     "gonzales-pe": "^3.3.6",
+    "minimatch": "^3.0.2",
     "mz": "^2.4.0"
   }
 }

@@ -7,6 +7,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments)).next());
     });
 };
+const minimatch = require('minimatch');
 const fs = require('mz/fs');
 const path = require('path');
 let gonzales = require('gonzales-pe');
@@ -103,6 +104,7 @@ class AnalyzerContext {
     }
     extend(path, syntax) {
         let t = new AnalyzerContext(path, syntax);
+        t.basePath = this.basePath;
         t.sections = this.sections;
         t.variables = this.variables;
         return t;
@@ -128,10 +130,12 @@ class AnalyzerContext {
     }
 }
 class Analyzer {
-    constructor() {
+    constructor(options) {
         this.types = {
             "modifiers": (name, content) => new ModifiersBlock("modifiers", content)
         };
+        this.options = Object.assign({}, options);
+        this.ignore = new minimatch.Minimatch(this.options.ignore || "");
     }
     analyze(path, syntax) {
         return __awaiter(this, void 0, Promise, function* () {
@@ -142,6 +146,8 @@ class Analyzer {
     }
     analyzeFile(context) {
         return __awaiter(this, void 0, void 0, function* () {
+            if (this.ignore.match(context.file))
+                return;
             var buffer = yield fs.readFile(context.file);
             var source = buffer.toString();
             var tree = gonzales.parse(source, { syntax: context.syntax });
@@ -153,12 +159,12 @@ class Analyzer {
             switch (node.type) {
                 case "multilineComment":
                     let section = this.parseSection(node.content);
-                    section.file = path.relative(context.basePath, context.file);
-                    section.line = node.start.line;
                     if (!section) {
                         console.log("Bad section?");
                         break;
                     }
+                    section.file = path.relative(context.basePath, context.file);
+                    section.line = node.start.line;
                     if (section.depth === undefined) {
                         // Just add under current section, no new scope
                         context.sections[context.sections.length - 1].addSection(section);

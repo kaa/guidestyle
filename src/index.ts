@@ -1,5 +1,6 @@
 "use strict";
 
+import * as minimatch from 'minimatch';
 import * as fs from 'mz/fs';
 import * as util from 'util';
 import * as path from 'path';
@@ -121,6 +122,7 @@ class AnalyzerContext {
 
   extend(path: string, syntax?: string): AnalyzerContext {
     let t = new AnalyzerContext(path, syntax);
+    t.basePath = this.basePath;
     t.sections = this.sections;
     t.variables = this.variables;
     return t;
@@ -154,6 +156,14 @@ export class Analyzer {
     "modifiers": (name, content) => new ModifiersBlock("modifiers", content)
   };
 
+  private options: any;
+  private ignore: minimatch.Minimatch;
+
+  constructor(options: any){ 
+    this.options = Object.assign({}, options);
+    this.ignore = new minimatch.Minimatch(this.options.ignore || "");
+  }  
+
   async analyze(path: string, syntax: string): Promise<any> {
     var context = new AnalyzerContext(path, syntax)
     await this.analyzeFile(context);
@@ -161,6 +171,7 @@ export class Analyzer {
   }
 
   private async analyzeFile(context: AnalyzerContext) {
+    if(this.ignore.match(context.file)) return;
     var buffer = await fs.readFile(context.file);
     var source = buffer.toString();
     var tree = gonzales.parse(source, { syntax: context.syntax });
@@ -171,12 +182,12 @@ export class Analyzer {
     switch(node.type) {
       case "multilineComment":
         let section = this.parseSection(node.content)
-        section.file = path.relative(context.basePath, context.file);
-        section.line = node.start.line;
         if(!section) {
           console.log("Bad section?");
           break;
         }
+        section.file = path.relative(context.basePath, context.file);
+        section.line = node.start.line;
         if(section.depth===undefined) {
           // Just add under current section, no new scope
           context.sections[context.sections.length-1].addSection(section);
