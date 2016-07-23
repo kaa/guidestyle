@@ -206,7 +206,8 @@ export class Analyzer {
         if(!this.isAcceptedSection(node.content)) {
           break;
         }
-        let section = this.parseSection(node.content)
+        let content = node.content.substring((this.options.sectionPrefix||"").length)
+        let section = this.parseSection(content)
         if(!section) {
           console.log("Bad section?");
           break;
