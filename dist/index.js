@@ -157,7 +157,7 @@ class Analyzer {
         });
     }
     isAcceptedSection(content) {
-        return !this.options.sectionPrefix || content.substring(0, this.options.sectionPrefix.length) != this.options.sectionPrefix;
+        return !this.options.sectionPrefix || content.substring(0, this.options.sectionPrefix.length) == this.options.sectionPrefix;
     }
     traverse(node, context) {
         return __awaiter(this, void 0, void 0, function* () {

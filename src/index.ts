@@ -187,7 +187,7 @@ export class Analyzer {
   }
 
   private isAcceptedSection(content) {
-    return !this.options.sectionPrefix || content.substring(0, this.options.sectionPrefix.length)!=this.options.sectionPrefix;
+    return !this.options.sectionPrefix || content.substring(0, this.options.sectionPrefix.length)==this.options.sectionPrefix;
   }
 
   private async traverse(node: any, context: AnalyzerContext) {
