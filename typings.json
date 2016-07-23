@@ -4,6 +4,6 @@
     "node": "registry:dt/node#6.0.0+20160709114037"
   },
   "dependencies": {
-    "minimatch": "registry:npm/minimatch#3.0.0+20160211003958"
+    "minimatch": "registry:npm/minimatch#3.0.0+20160723033700"
   }
 }

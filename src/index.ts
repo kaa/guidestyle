@@ -111,6 +111,7 @@ class AnalyzerContext {
   variables: {[name: string]: string};
   file: string;
   basePath: string;
+  isIgnoring: Boolean;
 
   constructor(fileName: string, syntax?: string) {
     this.file = fileName;
@@ -190,6 +191,16 @@ export class Analyzer {
   }
 
   private async traverse(node: any, context: AnalyzerContext) {
+    if(node.type==="singlelineComment") {
+      if(node.content.trim()=="BEGIN IGNORE") {
+        context.isIgnoring = true;
+      } else if(node.content.trim()=="END IGNORE") {
+        context.isIgnoring = false;
+      }
+    }
+    if(context.isIgnoring) {
+      return;
+    }
     switch(node.type) {
       case "multilineComment":
         if(!this.isAcceptedSection(node.content)) {
