@@ -177,7 +177,9 @@ class Analyzer {
                     if (!this.isAcceptedSection(node.content)) {
                         break;
                     }
-                    let content = node.content.substring((this.options.sectionPrefix || "").length);
+                    let content = node.content
+                        .substring((this.options.sectionPrefix || "").length)
+                        .replace("\r\n", "\n");
                     let section = this.parseSection(content);
                     if (!section) {
                         console.log("Bad section?");
