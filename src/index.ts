@@ -117,7 +117,7 @@ class AnalyzerContext {
     this.file = fileName;
     this.basePath = path.dirname(fileName);
     this.syntax = syntax || this.guessSyntaxFromExtension(fileName);
-    this.sections = [new Section()];
+    this.sections = [];
     this.variables = {};
   }
 
@@ -217,7 +217,11 @@ export class Analyzer {
         section.line = node.start.line;
         if(section.depth===undefined) {
           // Just add under current section, no new scope
-          context.sections[context.sections.length-1].addSection(section);
+          if(context.sections.length==0) {
+            context.sections.push(section);
+          } else {
+            context.sections[context.sections.length-1].addSection(section);
+          }
           break;
         }
 
@@ -225,10 +229,10 @@ export class Analyzer {
         context.sections.splice(section.depth);
         while(section.depth > context.sections.length) {
           let t = new Section();
-          t.line = section.line;
-          t.file = section.file;
           t.depth = context.sections.length;
-          context.sections[context.sections.length-1].addSection(t);
+          if(context.sections.length>0) {
+            context.sections[context.sections.length-1].addSection(t);
+          }
           context.sections.push(t);
         }
         context.sections[context.sections.length-1].addSection(section);
