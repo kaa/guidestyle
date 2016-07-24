@@ -191,7 +191,7 @@ class Analyzer {
                         break;
                     }
                     // Adjust stack to expected depth
-                    context.sections = context.sections.slice(0, section.depth);
+                    context.sections.splice(section.depth);
                     while (section.depth > context.sections.length) {
                         let t = new Section();
                         t.line = section.line;
@@ -249,7 +249,7 @@ class Analyzer {
         let blockRegExp = /^\s*(\w+):/, setextRegExp = /^\s*(=+|-+)/, atxRegExp = /^\s*(#+)\W+/, match;
         let paragraphs = source
             .split("\n\n")
-            .map(t => t.replace(/^\s*/m, "").replace(/\s*$/g, ""))
+            .map(t => t.replace(/^\s*/g, "").replace(/\s*$/g, ""))
             .filter(t => t.length > 0);
         let section = new Section();
         let para = paragraphs.shift();
