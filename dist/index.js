@@ -7,152 +7,34 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments)).next());
     });
 };
-const minimatch = require('minimatch');
 const fs = require('mz/fs');
 const path = require('path');
+const analyzerContext_1 = require("./analyzerContext");
+const blocks_1 = require("./blocks");
+const section_1 = require("./section");
 let gonzales = require('gonzales-pe');
-class Section {
-    addBlock(block) {
-        if (!this.blocks) {
-            this.blocks = [];
-        }
-        this.blocks.push(block);
-    }
-    addSection(section) {
-        if (!this.sections) {
-            this.sections = [];
-        }
-        this.sections.push(section);
-    }
-    toJSON(context) {
-        var blocks = {};
-        if (this.blocks) {
-            this.blocks.forEach(block => {
-                var json = block.toJSON(context);
-                if (blocks[block.type] === undefined) {
-                    blocks[block.type] = json;
-                }
-                else if (blocks[block.type] instanceof Array) {
-                    blocks[block.type].push(json);
-                }
-                else {
-                    blocks[block.type] = [blocks[block.type], json];
-                }
-            });
-        }
-        return {
-            file: this.file,
-            line: this.line,
-            title: this.title,
-            body: this.body,
-            blocks: blocks,
-            sections: this.sections
-                ? this.sections.map(t => t.toJSON(context))
-                : null,
-        };
-    }
-}
-class TextBlock {
-    constructor(type, content) {
-        this.type = type;
-        this.content = content;
-    }
-    toJSON(context) {
-        return this.content;
-    }
-}
-class KeyValueBlock {
-    constructor(type, content) {
-        this.type = type;
-        this.rows = {};
-        content.split("\n").map(t => t.trim()).forEach(t => {
-            var m = /\S+\s+-\s/.exec(t);
-            this.rows[m[0].substring(0, m[0].length - 3).trim()] = t.substring(m[0].length).trim();
-        });
-    }
-    toJSON(context) {
-        return this.rows;
-    }
-}
-class ModifiersBlock extends KeyValueBlock {
-    toJSON(context) {
-        var modifiers = {};
-        Object.keys(this.rows).forEach((value, index) => {
-            if (value[0] === ".") {
-                modifiers[value] = { "type": "class", "value": value.substring(1), "description": this.rows[value] };
-            }
-            else if (value[0] === "$") {
-                modifiers[value] = { "type": "variable", "name": value.substring(1), "value": context.resolveVariable(value.substring(1)), "description": this.rows[value] };
-            }
-            else if (value[0] === ":") {
-                modifiers[value] = { "type": "pseudo", "value": value, "description": this.rows[value] };
-            }
-            else {
-                modifiers[value] = { "type": "unknown", "value": value, "description": this.rows[value] };
-            }
-        });
-        return modifiers;
-    }
-}
-class AnalyzerContext {
-    constructor(fileName, syntax) {
-        this.file = fileName;
-        this.basePath = path.dirname(fileName);
-        this.syntax = syntax || this.guessSyntaxFromExtension(fileName);
-        this.sections = [];
-        this.variables = {};
-    }
-    extend(path, syntax) {
-        let t = new AnalyzerContext(path, syntax);
-        t.basePath = this.basePath;
-        t.sections = this.sections;
-        t.variables = this.variables;
-        return t;
-    }
-    resolveVariable(name) {
-        return this.variables[name];
-    }
-    toJSON() {
-        return {
-            variables: this.variables,
-            styleguide: this.sections[0].toJSON(this)
-        };
-    }
-    guessSyntaxFromExtension(filename) {
-        switch (path.extname(filename)) {
-            case ".scss":
-                return "scss";
-            case ".less":
-                return "less";
-            default:
-                return "css";
-        }
-    }
-}
 class Analyzer {
     constructor(options) {
-        this.types = {
-            "modifiers": (name, content) => new ModifiersBlock("modifiers", content)
-        };
         this.options = Object.assign({}, Analyzer.defaultOptions, options);
-        this.ignore = new minimatch.Minimatch(this.options.ignore || "");
     }
     analyze(path, syntax) {
         return __awaiter(this, void 0, Promise, function* () {
-            var context = new AnalyzerContext(path, syntax);
+            var context = new analyzerContext_1.AnalyzerContext(path, syntax);
             yield this.analyzeFile(context);
             return context.toJSON();
         });
     }
     analyzeFile(context) {
         return __awaiter(this, void 0, void 0, function* () {
-            let relativePath = path.relative(context.basePath, context.file);
-            if (this.ignore.match(relativePath)) {
-                return; // Ignored in options
-            }
             var buffer = yield fs.readFile(context.file);
             var source = buffer.toString();
-            var tree = gonzales.parse(source, { syntax: context.syntax });
+            let tree;
+            try {
+                tree = gonzales.parse(source, { syntax: context.syntax });
+            }
+            catch (err) {
+                throw new AnalyzerError(err.message, path.relative(context.basePath, context.file), err.line);
+            }
             yield this.traverse(tree, context);
         });
     }
@@ -170,7 +52,7 @@ class Analyzer {
                 }
             }
             if (context.isIgnoring) {
-                return;
+                return; // currently in an ignore section
             }
             switch (node.type) {
                 case "multilineComment":
@@ -182,7 +64,6 @@ class Analyzer {
                         .replace("\r\n", "\n");
                     let section = this.parseSection(content);
                     if (!section) {
-                        console.log("Bad section?");
                         break;
                     }
                     section.file = path.relative(context.basePath, context.file);
@@ -200,7 +81,7 @@ class Analyzer {
                     // Adjust stack to expected depth
                     context.sections.splice(section.depth);
                     while (section.depth > context.sections.length) {
-                        let t = new Section();
+                        let t = new section_1.Section();
                         t.depth = context.sections.length;
                         if (context.sections.length > 0) {
                             context.sections[context.sections.length - 1].addSection(t);
@@ -253,28 +134,22 @@ class Analyzer {
         });
     }
     parseSection(source) {
-        let blockRegExp = /^\s*(\w+):/, setextRegExp = /^\s*(=+|-+)/, atxRegExp = /^\s*(#+)\W+/, match;
+        let blockRegExp = /^\s*(\w+):/, atxRegExp = /^\s*(#+)\W+/, match;
         let paragraphs = source
             .split("\n\n")
             .map(t => t.replace(/^\s*/g, "").replace(/\s*$/g, ""))
             .filter(t => t.length > 0);
-        let section = new Section();
+        let section = new section_1.Section();
         let para = paragraphs.shift();
         if (!para)
             return null;
-        // Parse atx style heading or plain title
+        // Parse markdown (atx) style heading or plain title
         if (match = atxRegExp.exec(para)) {
             section.title = para.substring(match[0].length).trim();
             section.depth = match[1].length;
         }
         else {
             section.title = para.trim();
-        }
-        // Test for setext style heading (=== or ---)
-        para = paragraphs.shift();
-        if (match = setextRegExp.exec(para)) {
-            section.depth = match[1][0] == "=" ? 1 : 2;
-            para = paragraphs.shift();
         }
         // Read description
         while (para) {
@@ -291,15 +166,12 @@ class Analyzer {
                     break;
                 value += "\n\n" + para;
             }
-            var factory = this.types[type];
-            section.addBlock(factory ? factory(type, value) : new TextBlock(type, value));
+            section.addBlock(blocks_1.createBlock(type, value));
         }
         return section;
     }
 }
 Analyzer.defaultOptions = {
-    ignore: "",
     sectionPrefix: "",
 };
 exports.Analyzer = Analyzer;
-//# sourceMappingURL=index.js.map

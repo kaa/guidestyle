@@ -1,173 +1,19 @@
-"use strict";
-
-import * as minimatch from 'minimatch';
 import * as fs from 'mz/fs';
-import * as util from 'util';
 import * as path from 'path';
+import { AnalyzerContext } from "./analyzerContext";
+import { IBlock, createBlock } from "./blocks";
+import { Section } from "./section";
 let gonzales = require('gonzales-pe');
-
-class Section {
-  depth: number;
-  title: string;
-  body: string;
-  file: string;
-  line: number;
-  blocks: IBlock[];
-  sections: Section[];
-
-  addBlock(block: IBlock) {
-    if(!this.blocks){
-      this.blocks = [];
-    }
-    this.blocks.push(block);
-  }
-  addSection(section: Section) {
-    if(!this.sections){
-      this.sections = [];
-    }
-    this.sections.push(section);
-  }
-  toJSON(context: AnalyzerContext): Object {
-    var blocks = {};
-    if(this.blocks) {
-      this.blocks.forEach(block => {
-        var json = block.toJSON(context);
-        if(blocks[block.type]===undefined) {
-          blocks[block.type] = json;
-        } else if(blocks[block.type] instanceof Array) {
-          blocks[block.type].push(json);
-        } else {
-          blocks[block.type] = [blocks[block.type], json];
-        }
-      });
-    }
-    return {
-      file: this.file,
-      line: this.line,
-      title: this.title,
-      body: this.body,
-      blocks: blocks,
-      sections: this.sections 
-        ? this.sections.map(t => t.toJSON(context))
-        : null,
-    }
-  }
-}
-
-interface IBlock {
-  type: string;
-  toJSON(context: AnalyzerContext): Object;
-}
-class TextBlock implements IBlock {
-  type: string;
-  content: string;
-  constructor(type: string, content: string) {
-    this.type = type;
-    this.content = content;
-  }
-  toJSON(context: AnalyzerContext): Object {
-    return this.content;
-  }
-}
-
-class KeyValueBlock implements IBlock {
-  type: string;
-  rows: { [name: string]: string }
-  constructor(type: string, content: string) {
-    this.type = type;
-    this.rows = {};
-    content.split("\n").map(t => t.trim()).forEach(t => {
-      var m = /\S+\s+-\s/.exec(t);
-      this.rows[m[0].substring(0,m[0].length-3).trim()] = t.substring(m[0].length).trim();
-    });
-  }
-  toJSON(context: AnalyzerContext): Object {
-    return this.rows;
-  }
-}
-
-class ModifiersBlock extends KeyValueBlock {
-  type: string;
-  toJSON(context: AnalyzerContext): Object {
-    var modifiers = {};
-    Object.keys(this.rows).forEach((value, index) => {
-      if(value[0]===".") {
-        modifiers[value] = {"type": "class", "value": value.substring(1), "description": this.rows[value] };
-      } else if(value[0]==="$") {
-        modifiers[value] = {"type": "variable", "name": value.substring(1), "value": context.resolveVariable(value.substring(1)), "description": this.rows[value] };
-      } else if(value[0]===":") {
-        modifiers[value] = {"type": "pseudo", "value": value, "description": this.rows[value] };
-      } else {
-        modifiers[value] = {"type": "unknown", "value": value, "description": this.rows[value] };
-      }
-    });
-    return modifiers;
-  }
-}
-
-class AnalyzerContext {
-  syntax: string;
-  sections: Section[];
-  variables: {[name: string]: string};
-  file: string;
-  basePath: string;
-  isIgnoring: Boolean;
-
-  constructor(fileName: string, syntax?: string) {
-    this.file = fileName;
-    this.basePath = path.dirname(fileName);
-    this.syntax = syntax || this.guessSyntaxFromExtension(fileName);
-    this.sections = [];
-    this.variables = {};
-  }
-
-  extend(path: string, syntax?: string): AnalyzerContext {
-    let t = new AnalyzerContext(path, syntax);
-    t.basePath = this.basePath;
-    t.sections = this.sections;
-    t.variables = this.variables;
-    return t;
-  }
-
-  resolveVariable(name: string): string {
-    return this.variables[name];
-  }
-
-  toJSON(): Object {
-    return {
-      variables: this.variables,
-      styleguide: this.sections[0].toJSON(this)
-    }
-  }
-
-  private guessSyntaxFromExtension(filename: string) {
-    switch(path.extname(filename)) {
-      case ".scss":
-        return "scss";
-      case ".less":
-        return "less";
-      default:
-        return "css";
-    }
-  }
-}
 
 export class Analyzer {
   private static defaultOptions = {
-    ignore: "",
     sectionPrefix: "",
   };
 
-  private types: { [prefix: string]: (name: string, content: string) => IBlock } = {
-    "modifiers": (name, content) => new ModifiersBlock("modifiers", content)
-  };
-
   private options: any;
-  private ignore: minimatch.Minimatch;
 
   constructor(options: any){ 
     this.options = Object.assign({}, Analyzer.defaultOptions, options);
-    this.ignore = new minimatch.Minimatch(this.options.ignore || "");
   }  
 
   async analyze(path: string, syntax: string): Promise<any> {
@@ -177,13 +23,14 @@ export class Analyzer {
   }
 
   private async analyzeFile(context: AnalyzerContext) {
-    let relativePath = path.relative(context.basePath, context.file);
-    if(this.ignore.match(relativePath)) {
-      return; // Ignored in options
-    }
     var buffer = await fs.readFile(context.file);
     var source = buffer.toString();
-    var tree = gonzales.parse(source, { syntax: context.syntax });
+    let tree: any;
+    try {
+      tree = gonzales.parse(source, { syntax: context.syntax });
+    } catch(err) {
+      throw new AnalyzerError(err.message, path.relative(context.basePath, context.file), err.line);
+    }
     await this.traverse(tree, context);
   }
 
@@ -200,7 +47,7 @@ export class Analyzer {
       }
     }
     if(context.isIgnoring) {
-      return;
+      return; // currently in an ignore section
     }
     switch(node.type) {
       case "multilineComment":
@@ -212,7 +59,6 @@ export class Analyzer {
           .replace("\r\n","\n");
         let section = this.parseSection(content)
         if(!section) {
-          console.log("Bad section?");
           break;
         }
         section.file = path.relative(context.basePath, context.file);
@@ -284,7 +130,6 @@ export class Analyzer {
 
   private parseSection(source: string) : Section {
     let blockRegExp = /^\s*(\w+):/,
-        setextRegExp = /^\s*(=+|-+)/,
         atxRegExp = /^\s*(#+)\W+/,
         match : RegExpExecArray;
     let paragraphs = source
@@ -297,19 +142,12 @@ export class Analyzer {
     let para = paragraphs.shift();
     if(!para) return null;
 
-    // Parse atx style heading or plain title
+    // Parse markdown (atx) style heading or plain title
     if(match = atxRegExp.exec(para)) {
       section.title = para.substring(match[0].length).trim();
       section.depth = match[1].length;
     } else {
       section.title = para.trim();
-    }
-
-    // Test for setext style heading (=== or ---)
-    para = paragraphs.shift();
-    if(match = setextRegExp.exec(para)) {
-      section.depth = match[1][0]=="=" ? 1 : 2;
-      para = paragraphs.shift();
     }
 
     // Read description
@@ -328,8 +166,7 @@ export class Analyzer {
         if(blockRegExp.test(para)) break;
         value += "\n\n"+para;
       } 
-      var factory = this.types[type];
-      section.addBlock(factory ? factory(type, value) : new TextBlock(type, value));
+      section.addBlock(createBlock(type, value));
     }
 
     return section;
