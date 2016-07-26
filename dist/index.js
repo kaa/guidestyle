@@ -12,6 +12,7 @@ const path = require('path');
 const analyzerContext_1 = require("./analyzerContext");
 const blocks_1 = require("./blocks");
 const section_1 = require("./section");
+const error_1 = require("./error");
 let gonzales = require('gonzales-pe');
 class Analyzer {
     constructor(options) {
@@ -33,7 +34,7 @@ class Analyzer {
                 tree = gonzales.parse(source, { syntax: context.syntax });
             }
             catch (err) {
-                throw new AnalyzerError(err.message, path.relative(context.basePath, context.file), err.line);
+                throw new error_1.AnalyzerError(err.message, path.relative(context.basePath, context.file), err.line);
             }
             yield this.traverse(tree, context);
         });

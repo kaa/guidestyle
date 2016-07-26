@@ -1,4 +1,4 @@
-class AnalyzerError extends Error {
+export class AnalyzerError extends Error {
   fileName: string;
   line: number;
   constructor(message, fileName, line) {

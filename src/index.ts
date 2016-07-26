@@ -3,6 +3,7 @@ import * as path from 'path';
 import { AnalyzerContext } from "./analyzerContext";
 import { IBlock, createBlock } from "./blocks";
 import { Section } from "./section";
+import { AnalyzerError } from "./error";
 let gonzales = require('gonzales-pe');
 
 export class Analyzer {

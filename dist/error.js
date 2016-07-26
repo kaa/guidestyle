@@ -1,3 +1,4 @@
+"use strict";
 class AnalyzerError extends Error {
     constructor(message, fileName, line) {
         super(message);
@@ -5,3 +6,4 @@ class AnalyzerError extends Error {
         this.line = line;
     }
 }
+exports.AnalyzerError = AnalyzerError;
