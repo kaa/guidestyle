@@ -62,7 +62,7 @@ class Analyzer {
                     }
                     let content = node.content
                         .substring((this.options.sectionPrefix || "").length)
-                        .replace("\r\n", "\n");
+                        .replace(/\r\n/g, "\n");
                     let section = this.parseSection(content);
                     if (!section) {
                         break;
