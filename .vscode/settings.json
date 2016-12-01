@@ -3,6 +3,8 @@
   "files.exclude": {
   //  "**/node_modules": {},
     "**/typings": {},
-    "**/*.js": { "when": "$(basename).ts"}
+    "**/*.js": { "when": "$(basename).ts"},
+    "dist": {},
+    "node_modules": {}
   }
 }
