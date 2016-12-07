@@ -1,5 +1,5 @@
 import { Section } from "./section";
-export declare class AnalyzerContext {
+export declare class Context {
     syntax: string;
     sections: Section[];
     variables: {
@@ -9,6 +9,6 @@ export declare class AnalyzerContext {
     basePath: string;
     isIgnoring: Boolean;
     constructor(fileName: string, syntax?: string);
-    extend(path: string, syntax?: string): AnalyzerContext;
+    extend(path: string, syntax?: string): Context;
     private guessSyntaxFromExtension(filename);
 }

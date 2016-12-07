@@ -1,50 +1,57 @@
 "use strict";
-let types = {
+let blockFactories = {
     "modifiers": (name, content) => new ModifiersBlock("modifiers", content)
 };
 function createBlock(type, content) {
-    return types.hasOwnProperty(type) ? types[type](type, content) : new TextBlock(type, content);
+    return type && blockFactories.hasOwnProperty(type)
+        ? blockFactories[type](type, content)
+        : new TextBlock(type || "text", content);
 }
 exports.createBlock = createBlock;
-class TextBlock {
-    constructor(type, content) {
+class Block {
+    constructor(type) {
         this.type = type;
+    }
+}
+exports.Block = Block;
+class TextBlock extends Block {
+    constructor(type, content) {
+        super(type);
         this.content = content;
     }
-    toJSON(context) {
-        return this.content;
-    }
 }
-class KeyValueBlock {
+exports.TextBlock = TextBlock;
+class KeyValueBlock extends Block {
     constructor(type, content) {
-        this.type = type;
-        this.rows = {};
+        super(type);
         content.split("\n").map(t => t.trim()).forEach(t => {
             var m = /\S+\s+-\s/.exec(t);
-            this.rows[m[0].substring(0, m[0].length - 3).trim()] = t.substring(m[0].length).trim();
+            if (!m)
+                return;
+            this.accept(m[0].substring(0, m[0].length - 3).trim(), t.substring(m[0].length).trim());
         });
     }
-    toJSON(context) {
-        return this.rows;
-    }
+    accept(key, value) { }
 }
+exports.KeyValueBlock = KeyValueBlock;
 class ModifiersBlock extends KeyValueBlock {
-    toJSON(context) {
-        var modifiers = {};
-        Object.keys(this.rows).forEach((value, index) => {
-            if (value[0] === ".") {
-                modifiers[value] = { "type": "class", "value": value.substring(1), "description": this.rows[value] };
-            }
-            else if (value[0] === "$") {
-                modifiers[value] = { "type": "variable", "name": value.substring(1), "value": context.resolveVariable(value.substring(1)), "description": this.rows[value] };
-            }
-            else if (value[0] === ":") {
-                modifiers[value] = { "type": "pseudo", "value": value, "description": this.rows[value] };
-            }
-            else {
-                modifiers[value] = { "type": "unknown", "value": value, "description": this.rows[value] };
-            }
-        });
-        return modifiers;
+    constructor(type, content) {
+        super(type, content);
+    }
+    accept(key, value) {
+        this.modifiers = this.modifiers || {};
+        if (key[0] === ".") {
+            this.modifiers[key] = { type: "class", name: key.substring(1), description: value };
+        }
+        else if (key[0] === "$") {
+            this.modifiers[key] = { type: "variable", name: key.substring(1), description: value };
+        }
+        else if (key[0] === ":") {
+            this.modifiers[key] = { type: "pseudo", name: key, description: value };
+        }
+        else {
+            this.modifiers[key] = { type: "unknown", name: key, description: value };
+        }
     }
 }
+exports.ModifiersBlock = ModifiersBlock;

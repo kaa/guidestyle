@@ -1,50 +1,40 @@
-import { IBlock } from './blocks';
-import { AnalyzerContext } from "./analyzerContext";
+import { Block } from './blocks';
 
 export class Section {
-  depth: number;
-  title: string;
-  body: string;
-  file: string;
-  line: number;
-  blocks: IBlock[];
-  sections: Section[];
+  private parent: Section|null
+  depth: number = 0
+  title: string
+  file: string
+  line: number
+  blocks: Block[] = []
+  sections: Section[] = []
 
-  addBlock(block: IBlock) {
-    if(!this.blocks){
-      this.blocks = [];
-    }
-    this.blocks.push(block);
-  }
-  addSection(section: Section) {
-    if(!this.sections){
-      this.sections = [];
-    }
+  public addSection(section: Section): Section {
     this.sections.push(section);
+    section.parent = this;
+    return section;
   }
-  toJSON(context: AnalyzerContext): Object {
-    var blocks = {};
-    if(this.blocks) {
-      this.blocks.forEach(block => {
-        var json = block.toJSON(context);
-        if(blocks[block.type]===undefined) {
-          blocks[block.type] = json;
-        } else if(blocks[block.type] instanceof Array) {
-          blocks[block.type].push(json);
-        } else {
-          blocks[block.type] = [blocks[block.type], json];
-        }
-      });
+
+  public getStyleguide(): Styleguide {
+    if(!this.parent) {
+      throw Error("Section is not rooted in a styleguide");
     }
-    return {
-      file: this.file,
-      line: this.line,
-      title: this.title,
-      body: this.body,
-      blocks: blocks,
-      sections: this.sections 
-        ? this.sections.map(t => t.toJSON(context))
-        : null,
-    }
+    return this.parent.getStyleguide();
+  }
+  public getParent(): Section|null {
+    return this.parent ? this.parent : null;
+  }
+  public stringify(): string {
+    return JSON.stringify(this, (key,value) => key === "parent" ? undefined : value);
+  }
+}
+
+export class Styleguide extends Section {
+  variables: {[name:string]: string} = {};
+  constructor(){
+    super();
+  }
+  public getStyleguide(): Styleguide {
+    return this;
   }
 }

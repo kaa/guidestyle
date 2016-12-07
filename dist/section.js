@@ -1,43 +1,36 @@
 "use strict";
 class Section {
-    addBlock(block) {
-        if (!this.blocks) {
-            this.blocks = [];
-        }
-        this.blocks.push(block);
+    constructor() {
+        this.depth = 0;
+        this.blocks = [];
+        this.sections = [];
     }
     addSection(section) {
-        if (!this.sections) {
-            this.sections = [];
-        }
         this.sections.push(section);
+        section.parent = this;
+        return section;
     }
-    toJSON(context) {
-        var blocks = {};
-        if (this.blocks) {
-            this.blocks.forEach(block => {
-                var json = block.toJSON(context);
-                if (blocks[block.type] === undefined) {
-                    blocks[block.type] = json;
-                }
-                else if (blocks[block.type] instanceof Array) {
-                    blocks[block.type].push(json);
-                }
-                else {
-                    blocks[block.type] = [blocks[block.type], json];
-                }
-            });
+    getStyleguide() {
+        if (!this.parent) {
+            throw Error("Section is not rooted in a styleguide");
         }
-        return {
-            file: this.file,
-            line: this.line,
-            title: this.title,
-            body: this.body,
-            blocks: blocks,
-            sections: this.sections
-                ? this.sections.map(t => t.toJSON(context))
-                : null,
-        };
+        return this.parent.getStyleguide();
+    }
+    getParent() {
+        return this.parent ? this.parent : null;
+    }
+    stringify() {
+        return JSON.stringify(this, (key, value) => key === "parent" ? undefined : value);
     }
 }
 exports.Section = Section;
+class Styleguide extends Section {
+    constructor() {
+        super();
+        this.variables = {};
+    }
+    getStyleguide() {
+        return this;
+    }
+}
+exports.Styleguide = Styleguide;

@@ -4,6 +4,7 @@
         "module": "commonjs",
         "sourceMap": false,
         "outDir": "../dist",
-        "declaration": true
+        "declaration": true,
+        "strictNullChecks": true
     }
 }

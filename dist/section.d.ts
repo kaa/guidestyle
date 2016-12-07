@@ -1,14 +1,21 @@
-import { IBlock } from './blocks';
-import { AnalyzerContext } from "./analyzerContext";
+import { Block } from './blocks';
 export declare class Section {
+    private parent;
     depth: number;
     title: string;
-    body: string;
     file: string;
     line: number;
-    blocks: IBlock[];
+    blocks: Block[];
     sections: Section[];
-    addBlock(block: IBlock): void;
-    addSection(section: Section): void;
-    toJSON(context: AnalyzerContext): Object;
+    addSection(section: Section): Section;
+    getStyleguide(): Styleguide;
+    getParent(): Section | null;
+    stringify(): string;
+}
+export declare class Styleguide extends Section {
+    variables: {
+        [name: string]: string;
+    };
+    constructor();
+    getStyleguide(): Styleguide;
 }

@@ -1,61 +1,60 @@
-import { AnalyzerContext } from "./analyzerContext";
 
-export interface IBlock {
-  type: string;
-  toJSON(context: AnalyzerContext): Object;
-}
-
-let types: { [prefix: string]: (name: string, content: string) => IBlock } = {
+let blockFactories: { [prefix: string]: (name: string, content: string) => Block } = {
   "modifiers": (name, content) => new ModifiersBlock("modifiers", content)
 };
 
-export function createBlock(type: string, content: string): IBlock {
-  return types.hasOwnProperty(type) ? types[type](type, content) : new TextBlock(type, content)
+export function createBlock(type: string|null, content: string): Block {
+  return type && blockFactories.hasOwnProperty(type) 
+    ? blockFactories[type](type, content) 
+    : new TextBlock(type || "text", content)
 }
 
-class TextBlock implements IBlock {
+export class Block {
+  constructor(type: string) {
+    this.type = type;
+  }
+  type: string;
+}
+
+export class TextBlock extends Block {
   type: string;
   content: string;
   constructor(type: string, content: string) {
-    this.type = type;
+    super(type);
     this.content = content;
   }
-  toJSON(context: AnalyzerContext): Object {
-    return this.content;
-  }
 }
 
-class KeyValueBlock implements IBlock {
+export class KeyValueBlock extends Block {
   type: string;
-  rows: { [name: string]: string }
   constructor(type: string, content: string) {
-    this.type = type;
-    this.rows = {};
+    super(type);
     content.split("\n").map(t => t.trim()).forEach(t => {
       var m = /\S+\s+-\s/.exec(t);
-      this.rows[m[0].substring(0,m[0].length-3).trim()] = t.substring(m[0].length).trim();
+      if(!m) return;
+      this.accept(m[0].substring(0,m[0].length-3).trim(), t.substring(m[0].length).trim());
     });
   }
-  toJSON(context: AnalyzerContext): Object {
-    return this.rows;
-  }
+  accept(key: string, value: string) {}
 }
 
-class ModifiersBlock extends KeyValueBlock {
+export class ModifiersBlock extends KeyValueBlock {
   type: string;
-  toJSON(context: AnalyzerContext): Object {
-    var modifiers = {};
-    Object.keys(this.rows).forEach((value, index) => {
-      if(value[0]===".") {
-        modifiers[value] = {"type": "class", "value": value.substring(1), "description": this.rows[value] };
-      } else if(value[0]==="$") {
-        modifiers[value] = {"type": "variable", "name": value.substring(1), "value": context.resolveVariable(value.substring(1)), "description": this.rows[value] };
-      } else if(value[0]===":") {
-        modifiers[value] = {"type": "pseudo", "value": value, "description": this.rows[value] };
-      } else {
-        modifiers[value] = {"type": "unknown", "value": value, "description": this.rows[value] };
-      }
-    });
-    return modifiers;
+  modifiers: { [name: string]: { type: string, name: string, description: string } }
+  constructor(type: string, content: string) {
+    super(type, content);
+  }
+
+  accept(key: string, value: string) {
+    this.modifiers = this.modifiers || {};
+    if(key[0]===".") {
+      this.modifiers[key] = { type: "class", name: key.substring(1), description: value };
+    } else if(key[0]==="$") {
+      this.modifiers[key] = { type: "variable", name: key.substring(1), description: value };
+    } else if(key[0]===":") {
+      this.modifiers[key] = { type: "pseudo", name: key, description: value };
+    } else {
+      this.modifiers[key] = { type: "unknown", name: key, description: value };
+    }
   }
 }
