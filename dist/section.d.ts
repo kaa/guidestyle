@@ -8,7 +8,6 @@ export declare class Section {
     blocks: Block[];
     sections: Section[];
     addSection(section: Section): Section;
-    getStyleguide(): Styleguide;
     getParent(): Section | null;
     stringify(): string;
 }
@@ -17,5 +16,4 @@ export declare class Styleguide extends Section {
         [name: string]: string;
     };
     constructor();
-    getStyleguide(): Styleguide;
 }

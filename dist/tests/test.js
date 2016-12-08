@@ -25,10 +25,8 @@ describe("imports", () => {
         var analyzer = new index_1.Analyzer({
             resolver: resolver
         });
-        var ctx = new index_1.AnalyzerContext();
-        ctx.syntax = "css";
-        yield analyzer.analyze(yield resolver("index.css"), ctx);
-        assert.equal(ctx.section.getStyleguide().sections.length, 1);
+        let styleguide = yield analyzer.analyzePath("index.css");
+        assert.equal(styleguide.sections.length, 1);
     }));
     it("follows scss import rules", () => __awaiter(this, void 0, void 0, function* () {
         let sources = {
@@ -42,9 +40,8 @@ describe("imports", () => {
         var analyzer = new index_1.Analyzer({
             resolver: resolver
         });
-        var ctx = new index_1.AnalyzerContext();
-        yield analyzer.analyze(yield resolver("index.scss"), ctx);
-        assert.equal(ctx.section.getStyleguide().sections.length, 1);
+        let styleguide = yield analyzer.analyzePath("index.scss");
+        assert.equal(styleguide.sections.length, 1);
     }));
     it("registers file in section", () => __awaiter(this, void 0, void 0, function* () {
         let sources = {
@@ -60,12 +57,10 @@ describe("imports", () => {
         };
         let resolver = (path) => __awaiter(this, void 0, void 0, function* () { return sources[path]; });
         var analyzer = new index_1.Analyzer({ resolver: resolver });
-        var ctx = new index_1.AnalyzerContext();
-        ctx.path = "index.scss";
-        yield analyzer.analyze(yield resolver("index.scss"), ctx);
-        assert.equal(ctx.section.getStyleguide().sections[0].file, "index.scss");
-        assert.equal(ctx.section.getStyleguide().sections[1].file, "_child.scss");
-        assert.equal(ctx.section.getStyleguide().sections[2].file, "sub/_index.scss");
+        let styleguide = yield analyzer.analyzePath("index.scss");
+        assert.equal(styleguide.sections[0].file, "index.scss");
+        assert.equal(styleguide.sections[1].file, "_child.scss");
+        assert.equal(styleguide.sections[2].file, "sub/_index.scss");
     }));
 });
 describe("section", () => {
@@ -85,11 +80,9 @@ describe("section", () => {
                 block
             */
             `;
-        var ctx = new index_1.AnalyzerContext();
-        yield analyzer.analyze(source, ctx);
-        var styleguide = ctx.section.getStyleguide();
-        var section = styleguide.sections[0];
-        var text1 = section.blocks[0], block1 = section.blocks[1], text2 = section.blocks[2], block2 = section.blocks[3];
+        let styleguide = yield analyzer.analyzeString(source);
+        let section = styleguide.sections[0];
+        let text1 = section.blocks[0], block1 = section.blocks[1], text2 = section.blocks[2], block2 = section.blocks[3];
         assert.equal(text1.content, "Text block");
         assert.equal(text2.content, "Inline text block");
         assert.equal(block1.type, "block1");
@@ -108,9 +101,7 @@ describe("section", () => {
                 $var - a variable
             */
             `;
-        var ctx = new index_1.AnalyzerContext();
-        yield analyzer.analyze(source, ctx);
-        var styleguide = ctx.section.getStyleguide();
+        let styleguide = yield analyzer.analyzeString(source);
         var section = styleguide.sections[0];
         var mods = section.blocks[0];
         assert.equal(3, Object.keys(mods.modifiers).length);
@@ -135,19 +126,15 @@ describe("styleguide", () => {
                 Content
             */
             `;
-        var ctx = new index_1.AnalyzerContext();
-        yield analyzer.analyze(source, ctx);
-        var data = ctx.section.getStyleguide();
-        data.stringify();
+        let styleguide = yield analyzer.analyzeString(source);
+        styleguide.stringify();
     }));
     it("parses variables", () => __awaiter(this, void 0, void 0, function* () {
         let source = `
             $var1: red;
             $var2: #ddd;
             `;
-        var ctx = new index_1.AnalyzerContext();
-        yield analyzer.analyze(source, ctx);
-        var styleguide = ctx.section.getStyleguide();
+        let styleguide = yield analyzer.analyzeString(source, "scss");
         assert.equal(Object.keys(styleguide.variables).length, 2);
         assert.equal(styleguide.variables["var1"], "red");
         assert.equal(styleguide.variables["var2"], "#ddd");
@@ -159,9 +146,7 @@ describe("styleguide", () => {
 
                 A second block
             */`;
-        var ctx = new index_1.AnalyzerContext();
-        yield analyzer.analyze(source, ctx);
-        var styleguide = ctx.section.getStyleguide();
+        let styleguide = yield analyzer.analyzeString(source);
         assert.equal(styleguide.blocks.length, 2);
         var textBlock = styleguide.blocks[0];
         assert(textBlock);
@@ -177,9 +162,7 @@ describe("styleguide", () => {
                 # Section-Two
             */
             `;
-        var ctx = new index_1.AnalyzerContext();
-        yield analyzer.analyze(source, ctx);
-        var styleguide = ctx.section.getStyleguide();
+        let styleguide = yield analyzer.analyzeString(source);
         assert.equal(styleguide.sections.length, 2);
     }));
     it("parses sub sections", () => __awaiter(this, void 0, void 0, function* () {
@@ -192,9 +175,7 @@ describe("styleguide", () => {
                 ## Sub-Section-One
             */
             `;
-        var ctx = new index_1.AnalyzerContext();
-        yield analyzer.analyze(source, ctx);
-        var styleguide = ctx.section.getStyleguide();
+        let styleguide = yield analyzer.analyzeString(source);
         assert.equal(styleguide.sections.length, 1);
         assert.equal(styleguide.sections[0].sections.length, 1);
     }));
@@ -219,9 +200,7 @@ describe("styleguide", () => {
                 ## Sub-Section-One
             */
             `;
-        var ctx = new index_1.AnalyzerContext();
-        yield analyzer.analyze(source, ctx);
-        var styleguide = ctx.section.getStyleguide();
+        let styleguide = yield analyzer.analyzeString(source);
         assert.equal(styleguide.sections.length, 2);
         assert.equal(styleguide.sections[0].sections.length, 2);
         assert.equal(styleguide.sections[0].sections[0].sections.length, 1);
@@ -233,9 +212,7 @@ describe("styleguide", () => {
                 ### Section-One
             */
             `;
-        var ctx = new index_1.AnalyzerContext();
-        yield analyzer.analyze(source, ctx);
-        var styleguide = ctx.section.getStyleguide();
+        let styleguide = yield analyzer.analyzeString(source);
         assert.equal(styleguide.sections[0].sections[0].sections.length, 1);
     }));
     it("respects multiline ignore sections", () => __awaiter(this, void 0, void 0, function* () {
@@ -246,9 +223,7 @@ describe("styleguide", () => {
             */
             /* END IGNORE */
             `;
-        var ctx = new index_1.AnalyzerContext();
-        yield analyzer.analyze(source, ctx);
-        var styleguide = ctx.section.getStyleguide();
+        let styleguide = yield analyzer.analyzeString(source);
         assert.equal(styleguide.sections.length, 0);
     }));
     it("respects singleline sections", () => __awaiter(this, void 0, void 0, function* () {
@@ -259,9 +234,7 @@ describe("styleguide", () => {
             */
             // END IGNORE
             `;
-        var ctx = new index_1.AnalyzerContext();
-        yield analyzer.analyze(source, ctx);
-        var styleguide = ctx.section.getStyleguide();
+        let styleguide = yield analyzer.analyzeString(source, "scss");
         assert.equal(styleguide.sections.length, 0);
     }));
 });

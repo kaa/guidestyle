@@ -14,13 +14,6 @@ export class Section {
     section.parent = this;
     return section;
   }
-
-  public getStyleguide(): Styleguide {
-    if(!this.parent) {
-      throw Error("Section is not rooted in a styleguide");
-    }
-    return this.parent.getStyleguide();
-  }
   public getParent(): Section|null {
     return this.parent ? this.parent : null;
   }
@@ -33,8 +26,5 @@ export class Styleguide extends Section {
   variables: {[name:string]: string} = {};
   constructor(){
     super();
-  }
-  public getStyleguide(): Styleguide {
-    return this;
   }
 }

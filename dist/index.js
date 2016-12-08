@@ -17,12 +17,38 @@ class Analyzer {
     constructor(options) {
         this.options = Object.assign({}, Analyzer.defaultOptions, options);
     }
-    defaultResolver(path) {
+    /**
+     * Generate styleguide from a file
+     *
+     * @param path - Path to source file
+     */
+    analyzePath(path, syntax = null) {
         return __awaiter(this, void 0, void 0, function* () {
-            var buffer = yield fs.readFile(path);
-            return buffer.toString();
+            let context = new AnalyzerContext();
+            context.path = path;
+            context.syntax = syntax || this.guessSyntaxFromExtension(path);
+            var source = yield this.resolvePath(path);
+            yield this.analyze(source, context);
+            return context.styleguide;
         });
     }
+    /**
+     * Generate styleguide from a string.
+     *
+     * @param source - Source code to analyze
+     * @param syntax - The syntax of the supplied source code, defaults to 'css'
+     */
+    analyzeString(source, syntax = "css") {
+        return __awaiter(this, void 0, void 0, function* () {
+            let context = new AnalyzerContext(syntax);
+            context.path = "";
+            yield this.analyze(source, context);
+            return context.styleguide;
+        });
+    }
+    /**
+     * Generate styleguide by analyzing a string
+     */
     analyze(source, context) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
@@ -35,8 +61,10 @@ class Analyzer {
         });
     }
     /**
-     * Traverse nodes
-     * @param node - The current node to traverse
+     * Traverse node and children and look for sections, variable
+     * declarations and @import rules
+     *
+     * @param node - The current node to explore
      * @param context - The current state of analysis
     */
     traverse(node, context) {
@@ -82,7 +110,7 @@ class Analyzer {
         var value = node.first("value");
         if (!value)
             return;
-        context.section.getStyleguide().variables[name] = value.toString();
+        context.styleguide.variables[name] = value.toString();
     }
     /** Parse an import rule */
     parseAtRule(node, context) {
@@ -102,7 +130,7 @@ class Analyzer {
                 importPath = path.join(dirname, "_" + strippedPath + ".scss");
             }
             importPath = path.join(path.dirname(context.path || ""), importPath);
-            var source = yield (this.options.resolver || this.defaultResolver)(importPath), currentPath = context.path, currentSyntax = context.syntax;
+            var source = yield this.resolvePath(importPath), currentPath = context.path, currentSyntax = context.syntax;
             context.path = importPath;
             context.syntax = this.guessSyntaxFromExtension(importPath);
             yield this.analyze(source, context);
@@ -110,6 +138,7 @@ class Analyzer {
             context.syntax = currentSyntax;
         });
     }
+    /** Parse multiline comments to styleguide sections */
     parseMultilineComment(node, context) {
         var prefix = this.options.sectionPrefix;
         if (prefix && node.content.substring(0, prefix.length) != prefix) {
@@ -137,8 +166,12 @@ class Analyzer {
             section.file = context.path;
             section.line = node.start.line;
             if (depth) {
-                while (depth <= context.section.depth)
-                    context.section = context.section.getParent();
+                while (depth <= context.section.depth) {
+                    let parent = context.section.getParent();
+                    if (!parent)
+                        throw new Error("Section of depth " + context.section.depth + " does not have a parent.");
+                    context.section = parent;
+                }
                 while (depth > context.section.depth + 1) {
                     let s = new section_1.Section();
                     s.depth = context.section.depth + 1;
@@ -167,6 +200,7 @@ class Analyzer {
             para = paragraphs.shift();
         }
     }
+    /** Attempt to guess syntax of file from its extension */
     guessSyntaxFromExtension(filename) {
         switch (path.extname(filename)) {
             case ".scss":
@@ -177,6 +211,14 @@ class Analyzer {
                 return "css";
         }
     }
+    resolvePath(path) {
+        return __awaiter(this, void 0, void 0, function* () {
+            if (this.options.resolver)
+                return this.options.resolver(path);
+            var buffer = yield fs.readFile(path);
+            return buffer.toString();
+        });
+    }
 }
 Analyzer.defaultOptions = {
     sectionPrefix: ""
@@ -185,7 +227,7 @@ exports.Analyzer = Analyzer;
 class AnalyzerContext {
     constructor(syntax = "scss") {
         this.syntax = syntax;
-        this.section = new section_1.Styleguide();
+        this.section = this.styleguide = new section_1.Styleguide();
     }
 }
 exports.AnalyzerContext = AnalyzerContext;

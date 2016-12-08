@@ -6,7 +6,15 @@ import { AnalyzerError } from "./error";
 let gonzales = require('gonzales-pe');
 
 export interface AnalyzerOptions {
+    /**
+     * Require a special prefix to identify styleguide sections, the default is none.
+     */
     sectionPrefix?: string;
+
+    /**
+     * A function that is used to resolve @import directives, the default resolver
+     * gets imported files from the file system.
+     */
     resolver?: (path: string) => Promise<string>
 }
 
@@ -21,12 +29,38 @@ export class Analyzer {
     this.options = Object.assign({}, Analyzer.defaultOptions, options);
   }  
 
-  async defaultResolver(path): Promise<string> {
-    var buffer = await fs.readFile(path);
-    return buffer.toString();
+  /**
+   * Generate styleguide from a file
+   * 
+   * @param path - Path to source file
+   * @param syntax - Syntax of source file, default is determined from extension
+   */
+  async analyzePath(path: string, syntax: string|null = null): Promise<Styleguide> {
+    let context = new AnalyzerContext();
+    context.path = path;
+    context.syntax = syntax || this.guessSyntaxFromExtension(path);
+    var source = await this.resolvePath(path);
+    await this.analyze(source, context);
+    return context.styleguide;
   }
 
-  async analyze(source: string, context: AnalyzerContext): Promise<void> {
+  /**
+   * Generate styleguide from a string.
+   * 
+   * @param source - Source code to analyze
+   * @param syntax - The syntax of the supplied source code, defaults to 'css'
+   */
+  async analyzeString(source: string, syntax: string = "css"): Promise<Styleguide> {
+    let context = new AnalyzerContext(syntax);
+    context.path = "";
+    await this.analyze(source, context);
+    return context.styleguide;
+  }
+
+  /**
+   * Generate styleguide by analyzing a string
+   */
+  private async analyze(source: string, context: AnalyzerContext): Promise<void> {
     try {
       let node = gonzales.parse(source, { syntax: context.syntax });
       await this.traverse(node, context);
@@ -36,8 +70,10 @@ export class Analyzer {
   }
 
   /** 
-   * Traverse nodes 
-   * @param node - The current node to traverse
+   * Traverse node and children and look for sections, variable 
+   * declarations and @import rules
+   * 
+   * @param node - The current node to explore
    * @param context - The current state of analysis
   */
   private async traverse(node: any, context: AnalyzerContext): Promise<void> {
@@ -67,7 +103,7 @@ export class Analyzer {
   }
 
   /** Parse a variable declaration */
-  parseDeclaration(node: any, context: AnalyzerContext): void {
+  private parseDeclaration(node: any, context: AnalyzerContext): void {
     let property = node.first("property");
     if(!property) return;
     let variable = property.first("variable")
@@ -76,11 +112,11 @@ export class Analyzer {
     if(!name) return;
     var value = node.first("value");
     if(!value) return;
-    context.section.getStyleguide().variables[name] = value.toString();
+    context.styleguide.variables[name] = value.toString();
   }
 
   /** Parse an import rule */
-  async parseAtRule(node: any, context: AnalyzerContext): Promise<void> {
+  private async parseAtRule(node: any, context: AnalyzerContext): Promise<void> {
     let keyword = node.first("atkeyword");
     if(!keyword) return;
     let ident = keyword.first("ident");
@@ -97,7 +133,7 @@ export class Analyzer {
     }
     importPath = path.join(path.dirname(context.path || ""), importPath);
 
-    var source = await (this.options.resolver || this.defaultResolver)(importPath),
+    var source = await this.resolvePath(importPath),
         currentPath = context.path,
         currentSyntax = context.syntax;
     context.path = importPath;
@@ -107,7 +143,8 @@ export class Analyzer {
     context.syntax = currentSyntax;
   }
 
-  parseMultilineComment(node: any, context: AnalyzerContext): void {
+  /** Parse multiline comments to styleguide sections */
+  private parseMultilineComment(node: any, context: AnalyzerContext): void {
     var prefix = this.options.sectionPrefix;
     if(prefix && node.content.substring(0, prefix.length)!=prefix) {
       return;
@@ -139,8 +176,11 @@ export class Analyzer {
       section.file = context.path;
       section.line = node.start.line;
       if(depth) {
-        while(depth <= context.section.depth)
-          context.section = context.section.getParent();
+        while(depth <= context.section.depth) {
+          let parent = context.section.getParent();
+          if(!parent) throw new Error("Section of depth "+context.section.depth+" does not have a parent.");
+          context.section = parent;
+        }
         while(depth > context.section.depth + 1) {
           let s = new Section();
           s.depth = context.section.depth + 1;
@@ -169,6 +209,8 @@ export class Analyzer {
       para = paragraphs.shift();
     }
   }
+
+  /** Attempt to guess syntax of file from its extension */
   private guessSyntaxFromExtension(filename: string): string {
       switch (path.extname(filename)) {
           case ".scss":
@@ -179,17 +221,24 @@ export class Analyzer {
               return "css";
       }
   }
+
+  private async resolvePath(path: string): Promise<string> {
+    if(this.options.resolver)
+      return this.options.resolver(path);
+    var buffer = await fs.readFile(path);
+    return buffer.toString();
+  }
 }
 
 export class AnalyzerContext {
   isIgnoring: Boolean
   section: Section
-  basePath: string
+  styleguide: Styleguide
   path: string
   syntax: string
 
   constructor(syntax: string = "scss") {
     this.syntax = syntax;
-    this.section = new Styleguide();
+    this.section = this.styleguide = new Styleguide();
   }
 }
